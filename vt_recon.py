@@ -31,6 +31,7 @@ def print_logo():
 
     print("\n")
     print(f"{CYAN}    [+]{RESET} Tool    : {BOLD}VT Domain Reconnisiance{RESET}")
+    print(f"{CYAN}    [+]{RESET} Version : {BOLD}1.1{RESET}")
     print(f"{CYAN}    [+]{RESET} Dev     : {BOLD}Luxiel{RESET}")
     print(f"{CYAN}    [+]{RESET} Github  : {BOLD}https://github.com/0xLuxieL/VT-Recon{RESET}")
     print(f"\n{PURPLE}    ============================================={RESET}\n")
@@ -40,6 +41,7 @@ class Config:
     API_URL = "https://www.virustotal.com/vtapi/v2/domain/report"
     COOLDOWN = 65
     TIMEOUT = 10
+    MAX_RETRIES = 3
 
     COLORS = {
         'cyan': '\033[96m', 'magenta': '\033[95m', 'green': '\033[92m',
@@ -82,13 +84,13 @@ class ColorPrinter:
         print(f"     L Extracted: {self.c['green']}{urls} URLs{self.c['reset']} and {self.c['cyan']}{domains} Domains{self.c['reset']}")
 
     def queue_add(self, domain):
-        print(f"     L {self.c['grey']}[QUEUEING]{self.c['reset']} Adding: {domain}")
+        print(f"  {self.c['grey']}[QUEUEING]{self.c['reset']} Adding: {domain}")
 
     def skip_duplicate(self, domain):
-        print(f"     L {self.c['grey']}[SKIPPING]{self.c['reset']} Already seen: {domain}")
+        print(f"  {self.c['grey']}[SKIPPING]{self.c['reset']} Already seen: {domain}")
 
     def url_found(self, url):
-        print(f"     L {self.c['green']}[URL]{self.c['reset']} {url}")
+        print(f"  {self.c['green']}[URL]{self.c['reset']} {url}")
 
     def pause_info(self):
         print(f"\n{self.c['yellow']}[PAUSE]{self.c['reset']} Press Enter to continue or 'q' to quit...")
@@ -98,6 +100,17 @@ class ColorPrinter:
 
     def stats_info(self, urls, domains_processed, queue_size):
         print(f"{self.c['cyan']}[STATS]{self.c['reset']} URLs: {urls} | Domains: {domains_processed} | Queue: {queue_size}")
+
+    def cooldown_wait(self, seconds, domain, retry_count):
+        print(f"{self.c['yellow']}[COOLDOWN]{self.c['reset']} Retry {retry_count}/{Config.MAX_RETRIES} for {domain}. Waiting {seconds}s...")
+
+    def max_retries_exceeded(self, domain):
+        print(f"{self.c['red']}[MAX_RETRIES]{self.c['reset']} Skipping {domain} after {Config.MAX_RETRIES} failed attempts")
+
+    def scan_complete(self):
+        print(f"\n{self.c['green']}{'='*60}{self.c['reset']}")
+        print(f"{self.c['green']}    SCAN COMPLETED SUCCESSFULLY!{self.c['reset']}")
+        print(f"{self.c['green']}{'='*60}{self.c['reset']}")
 
 class VirusTotalAPI:
     def __init__(self, printer):
@@ -118,33 +131,44 @@ class VirusTotalAPI:
                 )
 
                 if resp.status_code == 200:
-                    return resp.json()
+                    data = resp.json()
+                    if data and not data.get('error'):
+                        return data
+                    else:
+                        error_msg = data.get('verbose_msg', 'Unknown API error')
+                        self.printer.warning(f"API error for {domain}: {error_msg}")
 
                 self.printer.warning(f"Key ..{key[-6:]} failed ({resp.status_code}). Rotating...")
 
             except requests.RequestException as e:
                 self.printer.error(f"Request failed: {e}")
 
-        self.printer.error(f"All keys exhausted. Sleeping {Config.COOLDOWN}s...")
-        time.sleep(Config.COOLDOWN)
         return None
 
 class ResponseParser:
     @staticmethod
-    def parse(data):
+    def parse(data, current_domain=None):
         if not data: return set(), set()
-        return ResponseParser._get_urls(data), ResponseParser._get_domains(data)
+
+        urls = ResponseParser._get_all_urls(data)
+        domains = ResponseParser._get_domains(data)
+
+        url_domains = ResponseParser._extract_domains_from_urls(urls)
+        domains.update(url_domains)
+
+        return urls, domains
 
     @staticmethod
-    def _get_urls(data):
+    def _get_all_urls(data):
         urls = set()
         for field in ['detected_urls', 'undetected_urls']:
             for item in data.get(field, []):
-                url = item[0] if isinstance(item, list) and item else \
+                url = item[0] if isinstance(item, list) and len(item) > 0 else \
                       item.get('url') if isinstance(item, dict) else \
                       item if isinstance(item, str) else None
-                if url and ResponseParser._is_valid_url(url):
-                    urls.add(url)
+
+                if url and isinstance(url, str) and url.strip():
+                    urls.add(url.strip())
         return urls
 
     @staticmethod
@@ -158,16 +182,25 @@ class ResponseParser:
         return domains
 
     @staticmethod
-    def _is_valid_url(url):
-        try:
-            result = urlparse(url)
-            return all([result.scheme in ['http', 'https'], result.netloc])
-        except: return False
+    def _extract_domains_from_urls(urls):
+        domains = set()
+        for url in urls:
+            try:
+                parsed = urlparse(url)
+                if parsed.netloc:
+                    domains.add(parsed.netloc)
+                elif not parsed.scheme and '.' in url:
+                    domains.add(url.split('/')[0])
+            except:
+                continue
+        return domains
 
     @staticmethod
     def _is_valid_domain(domain):
-        if not domain or len(domain) > 253: return False
-        pattern = r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'
+
+        if not domain or len(domain) > 253:
+            return False
+        pattern = r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$'
         return bool(re.match(pattern, domain))
 
 class DomainScanner:
@@ -180,6 +213,8 @@ class DomainScanner:
         self.unique_urls = set()
         self.paused = False
         self.should_stop = False
+        self.retry_count = {}
+        self.lock = threading.Lock()
 
     def run(self, target, output):
         if not ResponseParser._is_valid_domain(target):
@@ -212,6 +247,7 @@ class DomainScanner:
             self.printer.warning("Scan interrupted")
 
         self._save(output)
+        self.printer.scan_complete()
         self.printer.success(f"Scan finished. {len(self.unique_urls)} URLs saved.")
         self.printer.stats_info(len(self.unique_urls), len(self.history), len(self.queue))
 
@@ -220,15 +256,19 @@ class DomainScanner:
             while not self.should_stop:
                 try:
                     if input().strip() == '':
-                        self.pause_scan()
-                except: pass
+                        with self.lock:
+                            if not self.paused:
+                                self.paused = True
+                except:
+                    pass
 
         self.input_thread = threading.Thread(target=listen, daemon=True)
         self.input_thread.start()
 
     def pause_scan(self):
-        if not self.paused:
-            self.paused = True
+        with self.lock:
+            if not self.paused:
+                self.paused = True
 
     def _handle_pause(self):
         self.printer.pause_info()
@@ -239,21 +279,37 @@ class DomainScanner:
                     self.should_stop = True
                     self.printer.warning("Quitting...")
                 elif cmd == '':
-                    self.paused = False
+                    with self.lock:
+                        self.paused = False
                     self.printer.resume_info()
                     self.printer.stats_info(len(self.unique_urls), len(self.history), len(self.queue))
-            except: pass
+            except:
+                pass
 
     def _process(self, domain):
         data = self.api.fetch_report(domain)
-        if not data:
-            self.printer.warning(f"No data for {domain}")
+
+        if data is None:
+            current_retries = self.retry_count.get(domain, 0) + 1
+            self.retry_count[domain] = current_retries
+
+            if current_retries >= Config.MAX_RETRIES:
+                self.printer.max_retries_exceeded(domain)
+                self.history.add(domain)
+                return
+
+            self.printer.cooldown_wait(Config.COOLDOWN, domain, current_retries)
+            self.queue.appendleft(domain)
+            time.sleep(Config.COOLDOWN)
             return
+
+        if domain in self.retry_count:
+            del self.retry_count[domain]
 
         self.history.add(domain)
         self.printer.parsing_start()
 
-        new_urls, new_domains = ResponseParser.parse(data)
+        new_urls, new_domains = ResponseParser.parse(data, domain)
         self.printer.parse_stats(len(new_urls), len(new_domains))
 
         for url in new_urls:
@@ -269,13 +325,13 @@ class DomainScanner:
 
     def _save(self, path):
         try:
-            with open(path, "w") as f:
+            with open(path, "w", encoding='utf-8') as f:
                 f.write("\n".join(sorted(self.unique_urls)))
+            self.printer.success(f"Results saved to {path}")
         except IOError as e:
             self.printer.error(f"Save failed: {e}")
 
 def main():
-
     print_logo()
 
     parser = argparse.ArgumentParser(description="VirusTotal Domain Scanner")
