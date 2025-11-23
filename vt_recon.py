@@ -32,7 +32,7 @@ def print_logo():
     print("\n")
     print(f"{CYAN}    [+]{RESET} Tool    : {BOLD}VT Domain Reconnisiance{RESET}")
     print(f"{CYAN}    [+]{RESET} Dev     : {BOLD}Luxiel{RESET}")
-    print(f"{CYAN}    [+]{RESET} Github  : {BOLD}https://github.com/0xLuxieL{RESET}")
+    print(f"{CYAN}    [+]{RESET} Github  : {BOLD}https://github.com/0xLuxieL/VT-Recon{RESET}")
     print(f"\n{PURPLE}    ============================================={RESET}\n")
 
 
