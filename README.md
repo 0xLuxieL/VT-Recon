@@ -1,5 +1,5 @@
 
-<img width="484" height="244" alt="VT_Recon" src="https://github.com/user-attachments/assets/d84612a2-8b33-42b7-8e07-5950a5f0bc5e" />
+<img width="499" height="259" alt="image" src="https://github.com/user-attachments/assets/56d03dd0-8d98-4fb3-8227-d805f42971a3" />
 
 ----
 This tool recursively maps target URLs and associated subdomains via the VirusTotal API, systematically discovering:
