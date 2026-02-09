@@ -73,7 +73,7 @@ https://play.google.com/store/apps/details?id=com.[redacted].android
 ```bash
 python3 vt_recon.py -u com.[redacted].android -o results.txt
 ```
-<img width="1756" height="928" alt="image" src="https://github.com/user-attachments/assets/709e6f5a-2dca-4e95-9b60-178522ac05b5" />
+<img width="1756" height="928" alt="image" src="https://github.com/user-attachments/assets/9412aa02-309c-4c1d-ba44-ae7cfb010dd2" />
 
 ##  Disclaimer
 - This script is designed to help security professionals and researchers gather intelligence on their own infrastructure
