@@ -1,99 +1,81 @@
+# VT Domain Reconnaissance
 
-<img width="499" height="259" alt="image" src="https://github.com/user-attachments/assets/56d03dd0-8d98-4fb3-8227-d805f42971a3" />
+**VT-Recon** is a recursive intelligence gathering tool that maps target URLs and associated subdomains via the VirusTotal API. It systematically discovers infrastructure by pivoting through domain reports, handling API rate limits, and rotating keys automatically.
 
-----
-This tool recursively maps target URLs and associated subdomains via the VirusTotal API, systematically discovering:
-1. **Domain Lookup** (Initial Query) The script first queries the VirusTotal API's domain/report endpoint for the target domain (or a domain popped from the queue).
-2. **Data Extraction and Categorization** (URLs & Domains) The JSON response from VirusTotal is parsed to extract two main categories:
+## New Features (v1.2)
+* **📅 Historical Date Parsing:** Now extracts and displays the **scan date** for every URL found, allowing you to see exactly when a specific resource was archived or flagged on VirusTotal.
+* **📂 Subdomain Export:** New argument `-subdomains` allows you to save a separate clean list of all discovered subdomains.
+* **⏱️ Visual Timer:** Added a visual countdown timer for API cooldowns.
 
-      **URLs Found**:
-      - `detected_urls`: URLs flagged by security vendors
-      - `undetected_urls`: URLs with no detections
-   
-      **Domain Relationships** (New Domains for Recursion):
-      - `subdomains`: Directly linked subdomains of the current domain.
-      - `domain_siblings`: Related domains that share historical infrastructure
+---
 
+## ⚙️ How It Works
 
-3. **Recursion and De-duplication** After extraction, the tool performs the following actions:
-   
-      - Saves all unique URLs found to the output file (results.txt).
-      - Queues the new domains gathered (subdomains and domain_siblings) for processing.
-      - It maintains a history of scanned domains to prevent duplicate processing and ensure efficient enumeration.
+1.  **Domain Lookup (Initial Query):**
+    The script queries the VirusTotal API `domain/report` endpoint for the target domain.
 
-4. **Repeat the Process** The script then pulls the next domain from the queue and repeats the entire cycle (Steps 1–3) until the queue is empty or the process is stopped.
+2.  **Data Extraction & Parsing:**
+    The JSON response is analyzed to extract:
+    * **URLs Found:** `detected_urls` and `undetected_urls`.
+    * **Timestamps:** The specific scan date associated with each URL.
+    * **Domain Relationships:** `subdomains` and `domain_siblings`.
 
-------   
-- It supports both Public and Premium keys. Please refer to the official documentation on [Public vs. Premium API limits](https://docs.virustotal.com/reference/public-vs-premium-api) to understand your quota.
-- API key rotation cycle when a key fails (Rate Limited / HTTP error)
-- Triggers a `65s` cooldown if all API keys hit the standard 4 requests/minute rate limit
-- Optionally, you can you can press `Enter` to pause / resume while running the script.
-<img width="411" height="29" alt="pause" src="https://github.com/user-attachments/assets/1456b238-a27e-49ce-b0ae-84b6d3daa03b" />
-<img width="747" height="33" alt="q" src="https://github.com/user-attachments/assets/9b1b6cf0-dbc5-46e4-bacd-67c389982b3e" />
+3.  **Recursion & De-duplication:**
+    * Saves unique URLs + Dates to your output file.
+    * Queues new domains/siblings for recursion.
+    * Maintains a history to prevent infinite loops.
 
+4.  **Repeat:**
+    The script pops the next domain from the queue and repeats the cycle until the queue is empty or the user stops the scan.
 
+---
 
+## 🔑 Key Features
+* **API Key Rotation:** Automatically cycles through multiple API keys to maximize throughput.
+* **Rate Limit Handling:** Triggers a `65s` visual cooldown if all keys hit the standard 4 requests/minute limit.
+* **Interactive Control:** Press `ENTER` to **Pause/Resume** the scan at any time.
+<img width="411" alt="pause" src="https://github.com/user-attachments/assets/1456b238-a27e-49ce-b0ae-84b6d3daa03b" />
 
-##  Requirements
+* **Press** `q` (while paused or running) to save progress and quit.
+
+<img width="747" alt="q" src="https://github.com/user-attachments/assets/9b1b6cf0-dbc5-46e4-bacd-67c389982b3e" />
+
+---
+
+##  Installation
 
 1.  **Install dependencies:**
-
     ```bash
     pip3 install requests
     ```
 
-## Set up your VirusTotal API keys:
+2.  **Set up your VirusTotal API keys:**
+    Export your keys as an environment variable (comma-separated):
+    ```bash
+    export VT_API_KEYS="your_key1,your_key2,your_key3"
+    ```
+    *Note: Supports both Public and Premium keys. Add multiple keys for better performance. Please refer to the official documentation on [Public vs. Premium API](https://docs.virustotal.com/reference/public-vs-premium-api) limits to understand your quota.*
+     
+
+---
+
+## 💻 Usage
 ```bash
-export VT_API_KEYS="your_key1,your_key2,your_key3"
+python3 vt_recon.py -u example.com -o results.txt -s subdomains.txt
 ```
-- you can add more API keys for better performance
 
-## Usage
+https://github.com/user-attachments/assets/744155a8-8f3b-40a5-90f4-8dd446dd7304
+
+## `android://` or `oid://` URI scheme fetching 
+
+https://play.google.com/store/apps/details?id=com.[redacted].android
 
 ```bash
-python3 vt_recon.py -u example.com
+python3 vt_recon.py -u com.[redacted].android -o results.txt
 ```
+<img width="1756" height="928" alt="image" src="https://github.com/user-attachments/assets/709e6f5a-2dca-4e95-9b60-178522ac05b5" />
 
-### Custom Output File
-
-By default, results are saved to `results.txt`. You can change this with `-o`.
-
-```bash
-python3 vt_recon.py -u example.com -o my_scan.txt
-```
-
-The tool uses a verbose logging system to show exactly what is happening:
-
-  * **[LOOP]:** Indicates a domain has been popped from the queue for processing.
-  * **[FETCHING]:** Shows the HTTP request being made and the API key fragment used.
-  * **[PARSING]:** JSON analysis and extraction of intelligence.
-  * **[QUEUEING]:** New subdomains/siblings found and added to the recursion loop.
-  * **[URL]:** A unique URL found and saved.
-
-**Example Output:**
-
-```text
-[INFO] Target: example.com | Keys: 3 | Output: results.txt
-[INFO] Press ENTER to pause
-
-[LOOP] Popped: example.com | Remaining: 0
-  -> [FETCHING] example.com (Key: ..abc123)
-  -> [PARSING] analyzing JSON response...
-     L Extracted: 15 URLs and 8 Domains
-     L [URL] http://sub.example.com/page1
-     L [URL] http://sub.example.com/page2
-     L [QUEUEING] Adding: sub1.example.com
-     L [QUEUEING] Adding: sub2.example.com
-
-[LOOP] Popped: sub1.example.com | Remaining: 1
-  -> [FETCHING] sub1.example.com (Key: ..def456)
-```
-
-https://github.com/user-attachments/assets/a814f6a3-7e07-4099-a9c0-a8aa19b400e5
-
-
-## ⚠️ Disclaimer
-
+##  Disclaimer
 - This script is designed to help security professionals and researchers gather intelligence on their own infrastructure
   and is intended strictly for educational and security research. 
 - Users are responsible for adhering to the VirusTotal API Terms of Service.
