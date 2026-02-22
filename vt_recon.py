@@ -654,7 +654,7 @@ class DomainScanner:
 
 class CustomParser(argparse.ArgumentParser):
     def print_help(self):
-        print("usage: test.py [-u example.xyz] [-l domains.txt] [-o results.txt] [-s subdomains.txt] [-r all] [-dt] [-pipe]\n")
+        print("usage: python3 vt_recon.py [-u example.xyz] [-l domains.txt] [-o results.txt] [-s subdomains.txt] [-r all] [-dt] [-pipe]\n")
         print("VirusTotal Domain Scanner v1.3 \n")
         print("options:")
         print("  -h, --help               - Show this help message and exit")
