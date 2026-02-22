@@ -72,7 +72,7 @@ python3 vt_recon.py -u example.com -o results.txt
 ```
 ### Recursively scan all subdomains and `-s output` outputs all discovered subdomains in seprate txt file
 ```
-python3 vt_recon.py -u example.xyz -r -o results.txt -s gathered-subdomains.txt
+python3 vt_recon.py -u example.xyz -r all -o results.txt -s gathered-subdomains.txt
 ```
 ### Bulk Processing & Timestamps
 
