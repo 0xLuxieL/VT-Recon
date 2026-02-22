@@ -65,6 +65,19 @@ export VT_API_KEYS="your_key1,your_key2,your_key3"
 
 ## 💻 Usage
 
+```
+options:
+  -h, --help               - Show this help message and exit
+  -u, --url URL            - Target Domain(s) comma-separated
+  -l, --list LIST          - File containing list of domains (.txt)
+  -o, --output OUTPUT      - Output File for URLs
+  -s, --subdomains FILE    - Output File for retrieved Subdomains
+  -r all                   - Target domain for recursive scraping
+  -r subs.subs.example.xyz - Specifically recurse all subdomains of target subdomain
+  -dt                      - Include date/timestamp
+  -pipe                    - remove verbosity to pipe with other tools (httpx, gau, nuclei etc.)
+```
+
 ### Basic Single Target
 
 ```bash
